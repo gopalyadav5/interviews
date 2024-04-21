@@ -1,68 +1,69 @@
-import { useRef } from "react";
-import { throttle } from "lodash";
+import React from "react";
+import { useDragLayer } from "react-dnd";
+import { ItemTypes } from "./ItemTypes";
+import { Box } from "./Box";
 
-const useDragScrolling = () => {
-  const isScrolling = useRef(false);
-
-  const goDown = () => {
-    document.documentElement.scrollTop += 6;
-
-    const { offsetHeight, scrollTop, scrollHeight } = document.documentElement;
-    const isScrollEnd = offsetHeight + scrollTop >= scrollHeight;
-
-    if (isScrolling.current && !isScrollEnd) {
-      window.requestAnimationFrame(goDown);
-    }
-  };
-
-  const goUp = () => {
-    document.documentElement.scrollTop -= 6;
-
-    if (isScrolling.current && window.scrollY > 0) {
-      console.log("Going up -------", document.documentElement.scrollTop);
-      window.requestAnimationFrame(goUp);
-    }
-  };
-
-  const onDragOver = (event) => {
-    const isMouseOnTop = event.clientY < 100;
-    const isMouseOnDown = window.innerHeight - event.clientY < 50;
-
-    console.log(
-      "Drag event",
-      window.scrollY,
-      document.documentElement.scrollTop
-    );
-    if (!isScrolling.current && (isMouseOnTop || isMouseOnDown)) {
-      isScrolling.current = true;
-
-      if (isMouseOnTop) {
-        window.requestAnimationFrame(goUp);
-      }
-
-      if (isMouseOnDown) {
-        window.requestAnimationFrame(goDown);
-      }
-    } else if (!isMouseOnTop && !isMouseOnDown) {
-      isScrolling.current = false;
-    }
-  };
-
-  const throttleOnDragOver = throttle(onDragOver, 300);
-
-  const addEventListenerForWindow = () => {
-    window.addEventListener("dragover", throttleOnDragOver, false);
-  };
-
-  const removeEventListenerForWindow = () => {
-    window.removeEventListener("dragover", throttleOnDragOver, false);
-    isScrolling.current = false;
-  };
-
-  return {
-    addEventListenerForWindow,
-    removeEventListenerForWindow
-  };
+const styles = {
+  display: "inline-block",
 };
 
-export default useDragScrolling;
+const layerStyles = {
+  position: "fixed",
+  pointerEvents: "none",
+  zIndex: 100,
+  left: 0,
+  top: 0,
+  width: "100%",
+  height: "100%",
+};
+function getItemStyles(initialOffset, currentOffset, isSnapToGrid) {
+  if (!initialOffset || !currentOffset) {
+    return {
+      display: "none",
+    };
+  }
+  let { x, y } = currentOffset;
+  const transform = `translate(${x}px, ${y}px)`;
+  return {
+    transform,
+    WebkitTransform: transform,
+  };
+}
+
+export const CustomDragLayer = (props) => {
+  const { itemType, isDragging, item, initialOffset, currentOffset } =
+    useDragLayer((monitor) => ({
+      item: monitor.getItem(),
+      itemType: monitor.getItemType(),
+      initialOffset: monitor.getInitialSourceClientOffset(),
+      currentOffset: monitor.getSourceClientOffset(),
+      isDragging: monitor.isDragging(),
+    }));
+  function renderItem() {
+    switch (itemType) {
+      case ItemTypes.BOX:
+        return (
+          <div style={styles}>
+            <Box title={item.title} yellow={true} />
+          </div>
+        );
+      default:
+        return null;
+    }
+  }
+  if (!isDragging) {
+    return null;
+  }
+
+  console.log("currentOffset", currentOffset);
+
+  return (
+    <div style={layerStyles}>
+      <div
+        style={getItemStyles(initialOffset, currentOffset, props.snapToGrid)}
+      >
+        {renderItem()}
+      </div>
+    </div>
+  );
+};
